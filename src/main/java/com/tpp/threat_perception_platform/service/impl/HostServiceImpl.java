@@ -81,7 +81,8 @@ public class HostServiceImpl implements HostService {
             // 构建消息体
             HashMap<String, Object> messageMap = new HashMap<>();
             messageMap.put("hostName", hostName);
-            messageMap.put("macAddress", macAddress);
+            //messageMap.put("macAddress", macAddress)
+            messageMap.put("macAddress", originMacAddress);
             messageMap.put("type", type);
             messageMap.put("id", id);
             messageMap.put("detectAccount", "on".equals(data.get("detect-account")));

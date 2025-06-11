@@ -42,6 +42,8 @@
             <script type="text/html" id="table-useradmin-webuser">
                 <a class="layui-btn layui-btn-normal layui-btn-xs" lay-event="detect"><i
                         class="layui-icon layui-icon-edit"></i>资产探测</a>
+                <a class="layui-btn layui-btn-warm layui-btn-xs" lay-event="showResult"><i
+                        class="layui-icon layui-icon-list"></i>结果显示</a>
                 <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="del"><i
                         class="layui-icon layui-icon-delete"></i>删除</a>
             </script>
@@ -97,20 +99,15 @@
             , headers: {
                 'Authorization': localStorage.getItem('token')
             }
-            , width: 'auto'// 自适应宽度
+            // , width: 'auto'// 自适应宽度
             , cellMinWidth: 80 //全局定义常规单元格的最小宽度
             , title: '系统用户数据表'
             , cols: [
                 [
                     {type: 'checkbox', fixed: 'left'}
-                    , {field: 'id', title: 'ID'}
-                    , {field: 'macAddress', title: 'MAC地址', width: 160}
+                    , {field: 'id', title: 'ID', width: 60}
+                    , {field: 'macAddress', title: 'MAC地址', width: 150}
                     , {field: 'hostName', title: '主机名称'}
-                    , {field: 'osType', title: '系统类型'}
-                    , {field: 'osName', title: '系统名称'}
-                    , {field: 'osBit', title: '系统位数'}
-                    , {field: 'cpuName', title: 'CPU名称', width: 160}
-                    , {field: 'ram', title: '内存容量 (MB)'}
                     , {
                     field: 'isAlive', title: '是否存活', templet: function (d) {
                         if (d.isAlive === 1) {
@@ -119,10 +116,16 @@
                             return '<button class="layui-btn layui-btn-sm layui-bg-red">离线</button>';
                         }
                     }
+                    , width: 100
                 }
-                    , {field: 'createTime', title: '创建时间', width: 200}
-                    , {field: 'updateTime', title: '更改时间', width: 200}
-                    , {fixed: 'right', title: '操作', toolbar: '#table-useradmin-webuser', width: 180}
+                    , {field: 'osType', title: '系统类型'}
+                    , {field: 'osName', title: '系统名称'}
+                    , {field: 'osBit', title: '系统位数'}
+                    , {field: 'cpuName', title: 'CPU名称', width: 150}
+                    , {field: 'ram', title: '内存容量 (MB)'}
+                    , {field: 'createTime', title: '创建时间', width: 160}
+                    , {field: 'updateTime', title: '更改时间', width: 160}
+                    , {fixed: 'right', title: '操作', toolbar: '#table-useradmin-webuser', width: 260}
                 ]]
             , page: {
                 curr: 1 //设定初始在第 5 页
@@ -256,6 +259,10 @@
                                 success: function (res) {
                                     if (res.code == 0) {//成功
                                         layer.msg(res.msg);//弹出提示
+                                        // 将探测结果保存到 localStorage
+                                        if (res.data) {
+                                            localStorage.setItem('detectionResults_' + field.id, JSON.stringify(res.data));
+                                        }
                                         table.reload('LAY-user-manage'); //数据刷新
                                         layer.close(index); //关闭弹层
                                     } else {//系统出问题
@@ -268,6 +275,50 @@
                     }
                 });
 
+            } else if (obj.event === 'showResult') {
+                layer.open({
+                    type: 2
+                    , title: '探测结果显示'
+                    , skin: 'layui-layer-molv'
+                    , content: '/page/host/result_display'
+                    , maxmin: true
+                    , area: ['1000px', '700px']
+                    , success: function (layero, index) {
+                        var contentWindow = layero.find('iframe')[0].contentWindow;
+                        var hostId = data.id;
+                        var storedDetectionData = localStorage.getItem('detectionResults_' + hostId);
+                        var detectionDataToSend = {
+                            type: 'initialData',
+                            hostName: data.hostName,
+                            macAddress: data.macAddress,
+                            detectAccount: false,
+                            accountResults: [],
+                            detectService: false,
+                            serviceResults: [],
+                            detectProcess: false,
+                            processResults: [],
+                            detectApp: false,
+                            appResults: []
+                        };
+
+                        if (storedDetectionData) {
+                            var parsedData = JSON.parse(storedDetectionData);
+                            // 合并主机基础信息和探测结果
+                            Object.assign(detectionDataToSend, parsedData);
+                        } else {
+                            // 如果没有存储数据，可以显示一个提示
+                            layer.msg('该主机暂无探测结果，请先进行资产探测。', {icon: 0, time: 2000});
+                        }
+
+                        contentWindow.postMessage(detectionDataToSend, '*'); // '*': 允许任何来源
+
+                        // 填充主机信息 (已在 result_display.html 中处理，但这里仍然可以保证基本信息显示)
+                        contentWindow.layui.form.val('result-display-form', {
+                            "hostName": detectionDataToSend.hostName
+                            , "macAddress": detectionDataToSend.macAddress
+                        });
+                    }
+                });
             }
         });
 
